@@ -24,7 +24,8 @@ merge 1:1 SU_ID using "C:\Users\peng_admin\OneDrive - Indiana University\P2P\Sta
 merge 1:1 SU_ID using "C:\Users\peng_admin\OneDrive - Indiana University\P2P\55+\Data Files\Stata\P2P_panel_weights",nogen //weights
 
 keep if cog55==1 //keep cases done cog55+
-recode GENDER_ID (1=0) (2=1) (3=.),gen(female)
+list GENDER_BIRTH if GENDER_ID==3 //male at birth transgener to female
+recode GENDER_ID (1=0) (2=1) (3=2),gen(female)
 label var female "Women"
 lab define edu2 1 "Less than HS" 2 "HS or GED" 3 "Some college" 4 "College"
 lab values edu edu2
@@ -67,7 +68,7 @@ egen language=rowmean(animals veggies)
 
 recode COG_FUNCTION_* (97 98=.)
 egen cci=rowmean(COG_FUNCTION_*)
-label var cci "Cognitive complaint index"
+label var cci "Subjective cognitive complaints"
 
 
 	/*compute bridging ties*/
@@ -108,11 +109,6 @@ sum bonding
 local min=r(min)
 replace bonding=`min' if netsize==0 //set bonding to minimum value when netsize=0
 
-
-*descriptive table
-svyset psu [pw=wt_comb_age55], strata(strata) //psu and strata fix variance
-desctable age white female bridging bonding mocatotal_std reyadel_a6_total_std attention_std  cci_std, filename("descriptives") stats(svymean svysemean n) listwise group(edu)
-
 *standardized key variables
 foreach x of varlist netsize diverse bridging bonding mocatotal reyadel_a6_total attention cci  {
 	egen `x'_std =std(`x') 
@@ -122,6 +118,12 @@ label var bonding_std "Bonding social capital"
 label var attention_std "Attention" //digit span (can also be labeled as working memory)
 label var reyadel_a6_total_std "Episodic memory" //delayed Rey recall
 label var cci_std "Cognitive complaint index"
+
+*descriptive table
+svyset psu [pw=wt_comb_age55], strata(strata) //psu and strata fix variance
+desctable age white female bridging bonding mocatotal_std reyadel_a6_total_std attention_std  cci_std, filename("descriptives") stats(svymean svysemean n) group(edu)
+
+
 
 
 ***************************************************************
@@ -135,8 +137,8 @@ label var cci_std "Cognitive complaint index"
 
 eststo clear
 foreach y of varlist mocatotal_std reyadel_a6_total_std attention_std  cci_std {
-eststo `y'2 :	reg `y' age white female c.bridging_std##i.edu,vce(robust)
-eststo `y':	reg `y' age white female c.bonding_std##i.edu,vce(robust)
+eststo `y' :	reg `y' age white female c.bridging_std##i.edu,vce(robust)
+eststo `y'2:	reg `y' age white female c.bonding_std##i.edu,vce(robust)
 }
 esttab mocatotal_std reyadel_a6_total_std attention_std  cci_std mocatotal_std2 reyadel_a6_total_std2 attention_std2  cci_std2 using "reg.csv",label replace b(%5.3f) se(%5.3f) r2 nogap compress nonum noomitted noconstant
 
@@ -151,7 +153,7 @@ margins i.edu, at(bridging_std=(-2(1)2))
 marginsplot, tit("") ytit("Attention") xtit("Bridging social capital") recastci(rarea) ciopt(color(%5)) saving("plot3",replace)
 reg cci_std age white female c.bridging_std##i.edu,vce(robust)
 margins i.edu, at(bridging_std=(-2(1)2))
-marginsplot, tit("") ytit("Cognitive complaint index") xtit("Bridging social capital") recastci(rarea) ciopt(color(%5)) saving("plot4",replace)
+marginsplot, tit("") ytit("Subjective cognitive complaints") xtit("Bridging social capital") recastci(rarea) ciopt(color(%5)) saving("plot4",replace)
 
 grc1leg "plot1" "plot2" "plot3" "plot4", legendfrom("plot1") position(4) ring(1) imargin(0 0 0 0) ycommon 
 graph export "plot_bridging.tif", replace
@@ -159,16 +161,16 @@ graph export "plot_bridging.tif", replace
 
 reg mocatotal_std age white female c.bonding_std##i.edu,vce(robust)
 margins i.edu, at(bonding_std=(-2(1)2))
-marginsplot, tit("") ytit("Global cognition") xtit("bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot1",replace)
+marginsplot, tit("") ytit("Global cognition") xtit("Bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot1",replace)
 reg reyadel_a6_total_std age white female c.bonding_std##i.edu,vce(robust)
 margins i.edu, at(bonding_std=(-2(1)2))
-marginsplot, tit("") ytit("Episodic memory") xtit("bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot2",replace)
+marginsplot, tit("") ytit("Episodic memory") xtit("Bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot2",replace)
 reg attention_std age white female c.bonding_std##i.edu,vce(robust)
 margins i.edu, at(bonding_std=(-2(1)2))
-marginsplot, tit("") ytit("Attention") xtit("bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot3",replace)
+marginsplot, tit("") ytit("Attention") xtit("Bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot3",replace)
 reg cci_std age white female c.bonding_std##i.edu,vce(robust)
 margins i.edu, at(bonding_std=(-2(1)2))
-marginsplot, tit("") ytit("Cognitive complaint index") xtit("bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot4",replace)
+marginsplot, tit("") ytit("Subjective cognitive complaints") xtit("Bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot4",replace)
 
 grc1leg "plot1" "plot2" "plot3" "plot4", legendfrom("plot1") position(4) ring(1) imargin(0 0 0 0) ycommon 
 graph export "plot_bonding.tif", replace
@@ -182,8 +184,8 @@ svyset psu [pw=wt_comb_age55], strata(strata) //psu and strata fix variance
 
 eststo clear
 foreach y of varlist mocatotal_std reyadel_a6_total_std attention_std  cci_std {
-eststo `y'2:	 svy: reg `y' age white female c.bridging_std##i.edu
-eststo `y': svy: reg `y' age white female c.bonding_std##i.edu
+eststo `y':	 svy: reg `y' age white female c.bridging_std##i.edu
+eststo `y'2: svy: reg `y' age white female c.bonding_std##i.edu
 }
 esttab mocatotal_std reyadel_a6_total_std attention_std  cci_std mocatotal_std2 reyadel_a6_total_std2 attention_std2  cci_std2 using "reg.csv",label append b(%5.3f) se(%5.3f) nogap r2 compress nonum noomitted noconstant
 
@@ -200,7 +202,7 @@ margins i.edu, at(bridging_std=(-2(1)2))
 marginsplot, tit("") ytit("Attention") xtit("Bridging social capital") recastci(rarea) ciopt(color(%5)) saving("plot3",replace)
 svy: reg cci_std age white female c.bridging_std##i.edu
 margins i.edu, at(bridging_std=(-2(1)2))
-marginsplot, tit("") ytit("Cognitive complaint index") xtit("Bridging social capital") recastci(rarea) ciopt(color(%5)) saving("plot4",replace)
+marginsplot, tit("") ytit("Subjective cognitive complaints") xtit("Bridging social capital") recastci(rarea) ciopt(color(%5)) saving("plot4",replace)
 
 grc1leg "plot1" "plot2" "plot3" "plot4", legendfrom("plot1") position(4) ring(1) imargin(0 0 0 0) ycommon 
 graph export "plot_bridging_weight.tif", replace
@@ -208,16 +210,16 @@ graph export "plot_bridging_weight.tif", replace
 
 svy: reg mocatotal_std age white female c.bonding_std##i.edu
 margins i.edu, at(bonding_std=(-2(1)2))
-marginsplot, tit("") ytit("Global cognition") xtit("bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot1",replace)
+marginsplot, tit("") ytit("Global cognition") xtit("Bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot1",replace)
 svy: reg reyadel_a6_total_std age white female c.bonding_std##i.edu
 margins i.edu, at(bonding_std=(-2(1)2))
-marginsplot, tit("") ytit("Episodic memory") xtit("bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot2",replace)
+marginsplot, tit("") ytit("Episodic memory") xtit("Bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot2",replace)
 svy: reg attention_std age white female c.bonding_std##i.edu
 margins i.edu, at(bonding_std=(-2(1)2))
-marginsplot, tit("") ytit("Attention") xtit("bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot3",replace)
+marginsplot, tit("") ytit("Attention") xtit("Bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot3",replace)
 svy: reg cci_std age white female c.bonding_std##i.edu
 margins i.edu, at(bonding_std=(-2(1)2))
-marginsplot, tit("") ytit("Cognitive complaint index") xtit("bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot4",replace)
+marginsplot, tit("") ytit("Subjective cognitive complaints") xtit("Bonding social capital") recastci(rarea) ciopt(color(%5)) saving("plot4",replace)
 
 grc1leg "plot1" "plot2" "plot3" "plot4", legendfrom("plot1") position(4) ring(1) imargin(0 0 0 0) ycommon 
 graph export "plot_bonding_weight.tif", replace
